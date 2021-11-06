@@ -46,31 +46,27 @@ public class Main implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
         String caseType = args[0];
-        Boolean status = false;
         switch (caseType) {
             case "STAGE1":
-                status = stage1();
+                stage1();
                 break;
             case "STAGE2":
-                status = stage2();
+                stage2();
                 break;
             case "STAGE3":
-                status = stage3();
+                stage3();
                 break;
             case "STAGE4":
-                status = stage4();
+                stage4();
                 break;
             case "STAGE5":
-                status = stage5();
+                stage5();
                 break;
             case "STAGE6":
-                status = stage6();
+                stage6();
                 break;
             default:
                 throw new IllegalStateException("Unexpected value: " + caseType);
-        }
-        if (!status) {
-            System.exit(1);
         }
     }
 
@@ -78,7 +74,7 @@ public class Main implements CommandLineRunner {
      * Load order file to db.
      */
     @SneakyThrows
-    private Boolean stage1() {
+    private void stage1() {
         log.info("Loading orders to db");
         try {
             orderRepo.deleteAll();
@@ -99,10 +95,9 @@ public class Main implements CommandLineRunner {
                 }
             }
             log.info("Loading orders completed");
-            return true;
         } catch (Exception ex) {
             log.error("ERROR: stage1", ex);
-            return false;
+            throw new RuntimeException("ERROR: stage1");
         }
     }
 
@@ -110,7 +105,7 @@ public class Main implements CommandLineRunner {
      * Load material file to db.
      */
     @SneakyThrows
-    private Boolean stage2() {
+    private void stage2() {
         log.info("Loading materials to db");
         try {
             materialRepo.deleteAll();
@@ -129,17 +124,16 @@ public class Main implements CommandLineRunner {
                 }
             }
             log.info("Loading orders completed");
-            return true;
         } catch (Exception ex) {
             log.error("ERROR: stage2", ex);
-            return false;
+            throw new RuntimeException("ERROR: stage2");
         }
     }
 
     /**
      * Process orders if it can be fulfilled.
      */
-    private Boolean stage3() {
+    private void stage3() {
         log.info("Processing orders");
         try {
             processedRepo.deleteAll();
@@ -162,7 +156,7 @@ public class Main implements CommandLineRunner {
                     //add to processed.
                 } else {
                     log.info("ERROR: stage3, will not be able to complete all order!");
-                    return false;
+                    throw new RuntimeException("ERROR: stage3, will not be able to complete all order!");
                 }
             }
             result.forEach((k, v) -> {
@@ -175,17 +169,16 @@ public class Main implements CommandLineRunner {
                         .build());
             });
             log.info("Processing orders completed");
-            return true;
         } catch (Exception ex) {
             log.error("ERROR: stage3", ex);
-            return false;
+            throw new RuntimeException("ERROR: stage3");
         }
     }
 
     /**
      * Add buffer to order quantity to ensure no shortage.
      */
-    private Boolean stage4() {
+    private void stage4() {
         log.info("Adding buffer");
         try {
             factoryRepo.deleteAll();
@@ -210,17 +203,16 @@ public class Main implements CommandLineRunner {
 
             });
             log.info("Adding buffer completed");
-            return true;
         } catch (Exception ex) {
             log.error("ERROR: stage4", ex);
-            return false;
+            throw new RuntimeException("ERROR: stage4");
         }
     }
 
     /**
      * Add bonus points for sales rep.
      */
-    private Boolean stage5() {
+    private void stage5() {
         log.info("Adding Sales bonus");
         try {
             bonusRepo.deleteAll();
@@ -249,17 +241,16 @@ public class Main implements CommandLineRunner {
                 }
             });
             log.info("Adding Sales bonus completed");
-            return true;
         } catch (Exception ex) {
             log.error("ERROR: stage5", ex);
-            return false;
+            throw new RuntimeException("ERROR: stage5");
         }
     }
 
     /**
      * Notify factory to start production.
      */
-    private Boolean stage6() {
+    private void stage6() {
         log.info("Notifying factory");
         try {
             List<ProcessedDetail> processedDetail = processedRepo.findAll();
@@ -267,10 +258,9 @@ public class Main implements CommandLineRunner {
                 log.info("Notifiying factory: {}", p);
             });
             log.info("Notifying factory completed");
-            return true;
         } catch (Exception ex) {
             log.error("ERROR: stage6", ex);
-            return false;
+            throw new RuntimeException("ERROR: stage6");
         }
     }
 }
