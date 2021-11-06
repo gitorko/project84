@@ -1,0 +1,14 @@
+spring:
+  main:
+    banner-mode: "off"
+    web-application-type: none
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/test-db
+    username: test
+    password: test@123
+  jpa:
+    show-sql: false
+    hibernate.ddl-auto: update
+    properties.hibernate.temp.use_jdbc_metadata_defaults: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
