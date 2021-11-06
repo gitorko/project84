@@ -37,6 +37,7 @@ public class Main implements CommandLineRunner {
     final MaterialRepo materialRepo;
     final ProcessedRepo processedRepo;
     final BonusRepo bonusRepo;
+    final FactoryRepo factoryRepo;
 
     public static void main(String[] args) {
         SpringApplication.run(Main.class, args);
@@ -73,7 +74,9 @@ public class Main implements CommandLineRunner {
         }
     }
 
-
+    /**
+     * Load order file to db.
+     */
     @SneakyThrows
     private Boolean stage1() {
         log.info("Loading orders to db");
@@ -103,6 +106,9 @@ public class Main implements CommandLineRunner {
         }
     }
 
+    /**
+     * Load material file to db.
+     */
     @SneakyThrows
     private Boolean stage2() {
         log.info("Loading materials to db");
@@ -130,10 +136,15 @@ public class Main implements CommandLineRunner {
         }
     }
 
+    /**
+     * Process orders if it can be fulfilled.
+     */
     private Boolean stage3() {
         log.info("Processing orders");
         try {
             processedRepo.deleteAll();
+            bonusRepo.deleteAll();
+            factoryRepo.deleteAll();
             Map<String, Double> cache = new HashMap<>();
             materialRepo.findAll().forEach(m -> {
                 cache.put(m.getColor(), m.getQuantity());
@@ -156,7 +167,7 @@ public class Main implements CommandLineRunner {
             }
             result.forEach((k, v) -> {
                 String[] split = k.split("\\:");
-                processedRepo.save(Processed.builder()
+                processedRepo.save(ProcessedDetail.builder()
                         .color(split[0])
                         .quantity(v)
                         .processDate(LocalDate.now())
@@ -171,24 +182,31 @@ public class Main implements CommandLineRunner {
         }
     }
 
+    /**
+     * Add buffer to order quantity to ensure no shortage.
+     */
     private Boolean stage4() {
         log.info("Adding buffer");
         try {
-            List<Processed> processed = processedRepo.findAll();
-            processed.forEach(p -> {
-                if (!p.isBufferAdded()) {
-                    if (p.getQuantity() > 500) {
-                        p.setQuantity(p.getQuantity() + (p.getQuantity() * 0.30));
-                        p.setBufferAdded(true);
-                    } else if (p.getQuantity() > 200) {
-                        p.setQuantity(p.getQuantity() + (p.getQuantity() * 0.20));
-                        p.setBufferAdded(true);
-                    } else if (p.getQuantity() > 100) {
-                        p.setQuantity(p.getQuantity() + (p.getQuantity() * 0.10));
-                        p.setBufferAdded(true);
-                    }
-                    processedRepo.save(p);
+            factoryRepo.deleteAll();
+            List<ProcessedDetail> processedDetail = processedRepo.findAll();
+            processedDetail.forEach(p -> {
+                FactoryDetail factory = FactoryDetail.builder()
+                        .color(p.getColor())
+                        .city(p.getCity())
+                        .processDate(LocalDate.now())
+                        .build();
+                if (p.getQuantity() > 500) {
+                    factory.setQuantity(p.getQuantity() + (p.getQuantity() * 0.30));
+                } else if (p.getQuantity() > 200) {
+                    factory.setQuantity(p.getQuantity() + (p.getQuantity() * 0.20));
+                } else if (p.getQuantity() > 100) {
+                    factory.setQuantity(p.getQuantity() + (p.getQuantity() * 0.10));
+                    p.setQuantity(p.getQuantity() + (p.getQuantity() * 0.10));
+                } else {
+                    p.setQuantity(p.getQuantity());
                 }
+                factoryRepo.save(factory);
 
             });
             log.info("Adding buffer completed");
@@ -199,6 +217,9 @@ public class Main implements CommandLineRunner {
         }
     }
 
+    /**
+     * Add bonus points for sales rep.
+     */
     private Boolean stage5() {
         log.info("Adding Sales bonus");
         try {
@@ -213,14 +234,14 @@ public class Main implements CommandLineRunner {
 
             result.forEach((k, v) -> {
                 if (v > 200) {
-                    bonusRepo.save(Bonus.builder()
+                    bonusRepo.save(BonusDetail.builder()
                             .salesRep(k)
                             .bonusPoints(5)
                             .orderDate(LocalDate.now())
                             .build());
                 }
                 if (v > 500) {
-                    bonusRepo.save(Bonus.builder()
+                    bonusRepo.save(BonusDetail.builder()
                             .salesRep(k)
                             .bonusPoints(15)
                             .orderDate(LocalDate.now())
@@ -235,11 +256,14 @@ public class Main implements CommandLineRunner {
         }
     }
 
+    /**
+     * Notify factory to start production.
+     */
     private Boolean stage6() {
         log.info("Notifying factory");
         try {
-            List<Processed> processed = processedRepo.findAll();
-            processed.forEach(p -> {
+            List<ProcessedDetail> processedDetail = processedRepo.findAll();
+            processedDetail.forEach(p -> {
                 log.info("Notifiying factory: {}", p);
             });
             log.info("Notifying factory completed");
@@ -251,19 +275,19 @@ public class Main implements CommandLineRunner {
     }
 }
 
-interface BonusRepo extends JpaRepository<Bonus, Long> {
+interface BonusRepo extends JpaRepository<BonusDetail, Long> {
 }
 
 interface MaterialRepo extends JpaRepository<MaterialDetail, Long> {
 }
 
-interface NotifyRepo extends JpaRepository<Notify, Long> {
-}
-
 interface OrderRepo extends JpaRepository<OrderDetail, Long> {
 }
 
-interface ProcessedRepo extends JpaRepository<Processed, Long> {
+interface ProcessedRepo extends JpaRepository<ProcessedDetail, Long> {
+}
+
+interface FactoryRepo extends JpaRepository<FactoryDetail, Long> {
 }
 
 @Entity
@@ -271,7 +295,7 @@ interface ProcessedRepo extends JpaRepository<Processed, Long> {
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-class Bonus {
+class BonusDetail {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "id")
@@ -303,20 +327,6 @@ class MaterialDetail implements Serializable {
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-class Notify {
-    @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    @Column(name = "id")
-    private Long id;
-    private String salesRep;
-    private LocalDate orderDate;
-}
-
-@Entity
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
 class OrderDetail {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -334,7 +344,7 @@ class OrderDetail {
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-class Processed {
+class ProcessedDetail {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "id")
@@ -343,6 +353,20 @@ class Processed {
     private Double quantity;
     private String city;
     private LocalDate processDate;
-    @Builder.Default
-    private boolean bufferAdded = false;
+}
+
+@Entity
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+class FactoryDetail {
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "id")
+    private Long id;
+    private String color;
+    private Double quantity;
+    private String city;
+    private LocalDate processDate;
 }
