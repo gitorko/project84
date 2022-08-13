@@ -29,11 +29,17 @@ docker start pg-container
 
 ### Dev
 
-To run the backend in dev mode.
+Build the project & test if the jar works.
 
 ```bash
 ./gradlew clean build
-./gradlew bootRun
+cd project84/build/libs
+java -jar project84-1.0.0.jar STAGE1
+java -jar project84-1.0.0.jar STAGE2
+java -jar project84-1.0.0.jar STAGE3
+java -jar project84-1.0.0.jar STAGE4
+java -jar project84-1.0.0.jar STAGE5
+java -jar project84-1.0.0.jar STAGE6
 ```
 
 To truncate the tables
